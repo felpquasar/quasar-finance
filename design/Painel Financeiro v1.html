@@ -1,0 +1,719 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Painel Financeiro — Protótipo v1</title>
+<!--
+  PROTÓTIPO DE DESIGN — não conectado ao backend.
+  Referência: print do Felipe (dark, mint accent, números mono, labels uppercase).
+  Escopo: SÓ telas que existem na Fase 1 (Visão geral, Lançamentos, Revisar,
+  Categorias, Subir extratos, Login). Dados de exemplo coerentes com o sistema
+  real (auxílio R$ 1.412, régua de aporte R$ 417). Nada de feature futura.
+  Navegação: clique na sidebar, ou ?tela=visao|lancamentos|revisar|categorias|upload|login
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<style>
+:root {
+  --bg: #0a0d12;
+  --panel: #11161d;
+  --panel2: #161d26;
+  --panel3: #1b2430;
+  --border: #1f2733;
+  --border2: #2a3442;
+  --text: #e8edf2;
+  --muted: #7d8895;
+  --muted2: #56616e;
+  --mint: #3ce28b;
+  --mint-dim: #1d4a35;
+  --amber: #e8b33e;
+  --red: #ff6b5e;
+  --blue: #58a6ff;
+  --purple: #b48cf2;
+  --mono: 'IBM Plex Mono', monospace;
+  --sans: 'Space Grotesk', system-ui, sans-serif;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; }
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--sans);
+  font-size: 14px;
+  -webkit-font-smoothing: antialiased;
+}
+.num { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+.label {
+  font-size: 10.5px; font-weight: 600; letter-spacing: 0.14em;
+  text-transform: uppercase; color: var(--muted);
+}
+
+/* ============ Shell ============ */
+.app { display: flex; min-height: 100vh; }
+.sidebar {
+  width: 216px; flex-shrink: 0;
+  background: #0c1016;
+  border-right: 1px solid var(--border);
+  padding: 22px 14px;
+  display: flex; flex-direction: column; gap: 3px;
+  position: sticky; top: 0; height: 100vh;
+}
+.brand { display: flex; align-items: center; gap: 10px; padding: 0 10px 22px; }
+.brand-dot {
+  width: 12px; height: 12px; border-radius: 50%;
+  background: var(--mint); box-shadow: 0 0 12px rgba(60,226,139,.6);
+}
+.brand-name { line-height: 1.15; }
+.brand-name .label { display: block; font-size: 9.5px; }
+.brand-name strong { font-size: 15px; font-weight: 700; }
+.nav-item {
+  display: flex; align-items: center; gap: 11px;
+  padding: 10px 12px; border-radius: 10px;
+  color: var(--muted); cursor: pointer; user-select: none;
+  font-weight: 500; transition: all .14s; border: none; background: none;
+  font-family: var(--sans); font-size: 14px; text-align: left; width: 100%;
+}
+.nav-item:hover { background: var(--panel2); color: var(--text); }
+.nav-item.active {
+  background: var(--mint); color: #06130c; font-weight: 700;
+  box-shadow: 0 4px 18px rgba(60,226,139,.25);
+}
+.nav-item .ico { width: 17px; height: 17px; flex-shrink: 0; opacity: .9; }
+.nav-item.active .ico { opacity: 1; }
+.nav-badge {
+  margin-left: auto; background: var(--amber); color: #1a1405;
+  font-family: var(--mono); font-size: 11px; font-weight: 700;
+  min-width: 19px; height: 19px; border-radius: 999px;
+  display: flex; align-items: center; justify-content: center; padding: 0 5px;
+}
+.sidebar-meta { margin-top: auto; padding: 14px 10px 4px; display: flex; align-items: center; gap: 12px; border-top: 1px solid var(--border); }
+.ring { width: 44px; height: 44px; flex-shrink: 0; }
+.sidebar-meta .label { font-size: 9.5px; display: block; }
+.sidebar-meta .num { font-size: 14px; font-weight: 600; }
+
+main { flex: 1; padding: 30px 36px 60px; max-width: 1240px; }
+.page-head { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 24px; }
+.page-head h1 { font-size: 24px; font-weight: 700; letter-spacing: -0.01em; }
+.page-head .sub { color: var(--muted); font-family: var(--mono); font-size: 12px; margin-top: 5px; }
+
+/* ============ Cards / painéis ============ */
+.kpis { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 18px; }
+.kpi {
+  background: var(--panel); border: 1px solid var(--border);
+  border-radius: 14px; padding: 16px 18px;
+}
+.kpi.hero { border-color: rgba(60,226,139,.45); background: linear-gradient(180deg, rgba(60,226,139,.06), transparent 55%), var(--panel); }
+.kpi .label { display: block; margin-bottom: 9px; }
+.kpi .valor { font-family: var(--mono); font-size: 23px; font-weight: 700; letter-spacing: -0.02em; }
+.kpi .hint { color: var(--muted); font-size: 12px; margin-top: 7px; }
+.kpi .hint.link { color: var(--mint); cursor: pointer; }
+.v-mint { color: var(--mint); } .v-red { color: var(--red); }
+.v-amber { color: var(--amber); } .v-white { color: var(--text); }
+
+.panel {
+  background: var(--panel); border: 1px solid var(--border);
+  border-radius: 16px; padding: 20px 22px;
+}
+.panel-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+.pill {
+  font-size: 11px; font-weight: 600; padding: 4px 11px; border-radius: 999px;
+  font-family: var(--mono);
+}
+.pill.warn { background: rgba(232,179,62,.12); color: var(--amber); border: 1px solid rgba(232,179,62,.3); }
+.pill.ok { background: rgba(60,226,139,.1); color: var(--mint); border: 1px solid rgba(60,226,139,.3); }
+.pill.danger { background: rgba(255,107,94,.1); color: var(--red); border: 1px solid rgba(255,107,94,.3); }
+
+.grid-main { display: grid; grid-template-columns: 1fr; gap: 16px; margin-bottom: 16px; }
+.grid-3 { display: grid; grid-template-columns: 1.25fr 1fr 1fr; gap: 16px; align-items: start; }
+
+/* gráfico */
+.chart-wrap { position: relative; }
+.chart-note { color: var(--muted); font-size: 12px; margin-top: 12px; }
+.chart-legend { position: absolute; right: 0; font-family: var(--mono); font-size: 11px; }
+
+/* listas */
+.tx { display: flex; align-items: center; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--border); }
+.tx:last-child { border-bottom: none; }
+.tx-ico {
+  width: 34px; height: 34px; border-radius: 9px; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  font-family: var(--mono); font-size: 11px; font-weight: 700;
+  background: var(--panel3); border: 1px solid var(--border2);
+}
+.tx-info { flex: 1; min-width: 0; }
+.tx-info .t { font-weight: 600; font-size: 13.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tx-info .s { color: var(--muted); font-size: 11.5px; font-family: var(--mono); margin-top: 2px; }
+.tx-val { font-family: var(--mono); font-weight: 600; font-size: 13.5px; }
+
+.cat-row { margin-bottom: 14px; }
+.cat-row .cat-line { display: flex; justify-content: space-between; font-size: 13px; margin-bottom: 6px; }
+.cat-row .cat-line .num { color: var(--muted); font-size: 12px; }
+.cat-row .cat-line .num b { color: var(--text); }
+.bar { height: 5px; border-radius: 99px; background: var(--panel3); overflow: hidden; }
+.bar > i { display: block; height: 100%; border-radius: 99px; }
+
+/* ============ Tabela lançamentos ============ */
+.filters { display: flex; gap: 10px; margin-bottom: 16px; flex-wrap: wrap; }
+input, select, button.btn {
+  background: var(--panel2); border: 1px solid var(--border2); color: var(--text);
+  padding: 9px 13px; border-radius: 9px; font-family: var(--sans); font-size: 13.5px;
+}
+input:focus, select:focus { outline: 1px solid var(--mint); border-color: var(--mint); }
+input.mono, select.mono { font-family: var(--mono); font-size: 12.5px; }
+button.btn { cursor: pointer; font-weight: 600; }
+button.btn.primary { background: var(--mint); color: #06130c; border: none; }
+button.btn.primary:hover { filter: brightness(1.08); }
+button.btn.ghost { background: transparent; color: var(--muted); }
+button.btn.ghost:hover { color: var(--text); border-color: var(--muted); }
+
+table { width: 100%; border-collapse: collapse; }
+thead th {
+  font-size: 10.5px; font-weight: 600; letter-spacing: .12em; text-transform: uppercase;
+  color: var(--muted2); text-align: left; padding: 10px 12px;
+  border-bottom: 1px solid var(--border);
+}
+tbody td { padding: 12px; border-bottom: 1px solid var(--border); font-size: 13.5px; }
+tbody tr:hover td { background: rgba(255,255,255,.015); }
+td.r, th.r { text-align: right; }
+
+.badge {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: 11px; font-weight: 600; padding: 4px 11px; border-radius: 999px;
+  cursor: pointer; border: 1px solid transparent;
+}
+.badge::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+.badge.pessoal { background: rgba(60,226,139,.1); color: var(--mint); }
+.badge.transito { background: rgba(88,166,255,.1); color: var(--blue); }
+.badge.quasar { background: rgba(232,179,62,.12); color: var(--amber); }
+.badge.compartilhada { background: rgba(180,140,242,.12); color: var(--purple); }
+
+/* ============ Revisar ============ */
+.review-card {
+  background: var(--panel); border: 1px solid var(--border); border-radius: 14px;
+  padding: 16px 18px; margin-bottom: 12px;
+  display: flex; align-items: center; gap: 16px;
+}
+.review-card.flag { border-left: 3px solid var(--amber); }
+.review-info { flex: 1; }
+.review-info .t { font-weight: 600; }
+.review-info .s { color: var(--muted); font-family: var(--mono); font-size: 11.5px; margin-top: 3px; }
+.review-actions { display: flex; gap: 8px; }
+.chip {
+  font-size: 12px; font-weight: 600; padding: 7px 14px; border-radius: 999px;
+  border: 1px solid var(--border2); background: var(--panel2); color: var(--muted);
+  cursor: pointer; transition: all .12s; font-family: var(--sans);
+}
+.chip:hover { border-color: var(--mint); color: var(--mint); }
+.chip.amber:hover { border-color: var(--amber); color: var(--amber); }
+.chip.blue:hover { border-color: var(--blue); color: var(--blue); }
+.raw { font-family: var(--mono); font-size: 12px; color: var(--muted); background: #0c1016; border: 1px dashed var(--border2); border-radius: 8px; padding: 9px 12px; }
+
+.section-title { font-size: 15px; font-weight: 700; margin: 28px 0 14px; display: flex; align-items: center; gap: 10px; }
+.section-title:first-of-type { margin-top: 0; }
+.section-title .count { font-family: var(--mono); font-size: 11px; color: var(--muted); }
+
+/* ============ Categorias ============ */
+.cat-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 12px; }
+.cat-card {
+  background: var(--panel); border: 1px solid var(--border); border-radius: 12px;
+  padding: 15px 16px; display: flex; align-items: center; gap: 12px;
+}
+.cat-card .dot { width: 9px; height: 9px; border-radius: 3px; flex-shrink: 0; }
+.cat-card .nome { font-weight: 600; font-size: 13.5px; flex: 1; }
+.cat-card .origem { font-family: var(--mono); font-size: 10px; color: var(--muted2); }
+
+/* ============ Upload ============ */
+.dropzone {
+  border: 1.5px dashed var(--border2); border-radius: 16px;
+  padding: 56px 24px; text-align: center; cursor: pointer; transition: all .15s;
+  background: var(--panel);
+}
+.dropzone:hover { border-color: var(--mint); background: linear-gradient(180deg, rgba(60,226,139,.04), transparent), var(--panel); }
+.dropzone .big { font-size: 17px; font-weight: 700; margin: 14px 0 6px; }
+.dropzone .sub { color: var(--muted); font-size: 13px; }
+.conta-pills { display: flex; gap: 10px; margin-bottom: 18px; }
+.conta-pill {
+  display: flex; align-items: center; gap: 9px; padding: 11px 18px; border-radius: 11px;
+  border: 1px solid var(--border2); background: var(--panel); cursor: pointer;
+  font-weight: 600; font-size: 13.5px; color: var(--muted); font-family: var(--sans);
+}
+.conta-pill.sel { border-color: var(--mint); color: var(--text); background: linear-gradient(180deg, rgba(60,226,139,.07), transparent), var(--panel); }
+.conta-pill .b-dot { width: 8px; height: 8px; border-radius: 50%; }
+
+/* ============ Login ============ */
+.login-screen { min-height: 100vh; display: flex; align-items: center; justify-content: center; width: 100%; background: radial-gradient(1100px 500px at 50% -10%, rgba(60,226,139,.07), transparent), var(--bg); }
+.login-card {
+  width: 360px; background: var(--panel); border: 1px solid var(--border);
+  border-radius: 18px; padding: 36px 32px;
+}
+.login-card .brand { padding-bottom: 26px; }
+.login-card input { width: 100%; margin-bottom: 12px; padding: 12px 14px; }
+.login-card button { width: 100%; padding: 12px; margin-top: 6px; font-size: 14px; }
+
+.hidden { display: none !important; }
+</style>
+</head>
+<body>
+
+<!-- ====================== LOGIN (tela isolada) ====================== -->
+<div id="tela-login" class="login-screen hidden">
+  <div class="login-card">
+    <div class="brand">
+      <div class="brand-dot"></div>
+      <div class="brand-name"><span class="label">Painel</span><strong>Felipe</strong></div>
+    </div>
+    <input type="email" placeholder="E-mail" value="fyllype12.fp@gmail.com" />
+    <input type="password" placeholder="Senha" value="········" />
+    <button class="btn primary">Entrar</button>
+  </div>
+</div>
+
+<!-- ====================== APP SHELL ====================== -->
+<div id="shell" class="app">
+  <nav class="sidebar">
+    <div class="brand">
+      <div class="brand-dot"></div>
+      <div class="brand-name"><span class="label">Painel</span><strong>Felipe</strong></div>
+    </div>
+
+    <button class="nav-item" data-tela="visao">
+      <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>
+      Visão geral
+    </button>
+    <button class="nav-item" data-tela="lancamentos">
+      <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 6h13M8 12h13M8 18h13"/><circle cx="4" cy="6" r="1.2" fill="currentColor"/><circle cx="4" cy="12" r="1.2" fill="currentColor"/><circle cx="4" cy="18" r="1.2" fill="currentColor"/></svg>
+      Lançamentos
+    </button>
+    <button class="nav-item" data-tela="revisar">
+      <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3 8-8"/><path d="M20 12v6a2 2 0 01-2 2H6a2 2 0 01-2-2V6a2 2 0 012-2h9"/></svg>
+      Revisar
+      <span class="nav-badge">5</span>
+    </button>
+    <button class="nav-item" data-tela="categorias">
+      <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7l9-4 9 4-9 4-9-4z"/><path d="M3 12l9 4 9-4"/><path d="M3 17l9 4 9-4"/></svg>
+      Categorias
+    </button>
+    <button class="nav-item" data-tela="upload">
+      <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 16V4m0 0l-4 4m4-4l4 4"/><path d="M4 16v3a2 2 0 002 2h12a2 2 0 002-2v-3"/></svg>
+      Subir extratos
+    </button>
+
+    <div class="sidebar-meta">
+      <svg class="ring" viewBox="0 0 44 44">
+        <circle cx="22" cy="22" r="18" fill="none" stroke="#1f2733" stroke-width="5"/>
+        <circle cx="22" cy="22" r="18" fill="none" stroke="#3ce28b" stroke-width="5"
+          stroke-dasharray="113" stroke-dashoffset="94" stroke-linecap="round"
+          transform="rotate(-90 22 22)"/>
+      </svg>
+      <div>
+        <span class="label">Reserva</span>
+        <span class="num">R$ 834,00</span>
+      </div>
+    </div>
+  </nav>
+
+  <main>
+    <!-- ====================== VISÃO GERAL ====================== -->
+    <section id="tela-visao">
+      <div class="page-head">
+        <div>
+          <h1>Visão geral</h1>
+          <div class="sub">junho 2026 · semana 2</div>
+        </div>
+      </div>
+
+      <div class="kpis">
+        <div class="kpi hero">
+          <span class="label">Sobra do mês</span>
+          <div class="valor num v-red">R$ 185,90</div>
+          <div class="hint">faltam <b class="num">R$ 231,10</b> p/ aporte de R$ 417</div>
+        </div>
+        <div class="kpi">
+          <span class="label">Gasto pessoal</span>
+          <div class="valor num v-white">R$ 1.226,10</div>
+          <div class="hint">trânsito e Quasar já excluídos</div>
+        </div>
+        <div class="kpi">
+          <span class="label">Entradas</span>
+          <div class="valor num v-mint">R$ 1.412,00</div>
+          <div class="hint">auxílio · 05/06</div>
+        </div>
+        <div class="kpi">
+          <span class="label">Fila de revisão</span>
+          <div class="valor num v-amber">5</div>
+          <div class="hint link" data-goto="revisar">decidir em 1 toque →</div>
+        </div>
+      </div>
+
+      <div class="grid-main">
+        <div class="panel">
+          <div class="panel-head">
+            <span class="label">Gasto acumulado · junho</span>
+            <span class="pill warn">▲ top categoria: delivery R$ 196,40</span>
+          </div>
+          <div class="chart-wrap">
+            <svg viewBox="0 0 980 240" width="100%" preserveAspectRatio="none" style="display:block">
+              <!-- linha renda -->
+              <line x1="0" y1="34" x2="980" y2="34" stroke="#58a6ff" stroke-width="1" stroke-dasharray="5 6" opacity=".55"/>
+              <text x="976" y="28" text-anchor="end" font-family="IBM Plex Mono" font-size="11" fill="#58a6ff">renda R$ 1.412,00</text>
+              <!-- linha teto p/ aporte -->
+              <line x1="0" y1="72" x2="980" y2="72" stroke="#e8b33e" stroke-width="1" stroke-dasharray="5 6" opacity=".65"/>
+              <text x="976" y="66" text-anchor="end" font-family="IBM Plex Mono" font-size="11" fill="#e8b33e">teto p/ aporte R$ 995,00</text>
+              <!-- área -->
+              <defs>
+                <linearGradient id="ga" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stop-color="#3ce28b" stop-opacity=".22"/>
+                  <stop offset="100%" stop-color="#3ce28b" stop-opacity="0"/>
+                </linearGradient>
+              </defs>
+              <path d="M0,232 L70,226 L140,219 L210,208 L280,204 L350,188 L420,184 L490,166 L560,160 L630,142 L700,138 L770,124 L840,114 L910,96 L980,90 L980,240 L0,240 Z" fill="url(#ga)"/>
+              <path d="M0,232 L70,226 L140,219 L210,208 L280,204 L350,188 L420,184 L490,166 L560,160 L630,142 L700,138 L770,124 L840,114 L910,96 L980,90" fill="none" stroke="#3ce28b" stroke-width="2.5" stroke-linejoin="round"/>
+              <circle cx="980" cy="90" r="4.5" fill="#3ce28b"/>
+            </svg>
+          </div>
+          <div class="chart-note">Mantenha a curva verde abaixo da linha âmbar até o dia 30 e o aporte da meta está garantido.</div>
+        </div>
+      </div>
+
+      <div class="grid-3">
+        <div class="panel">
+          <div class="panel-head">
+            <span class="label">Últimos lançamentos</span>
+            <span class="pill ok" data-goto="lancamentos" style="cursor:pointer">ver tudo →</span>
+          </div>
+          <div class="tx">
+            <div class="tx-ico" style="color:#3ce28b">ME</div>
+            <div class="tx-info"><div class="t">Mercado São Luís</div><div class="s">08/06 · Mercado</div></div>
+            <div class="tx-val v-red">-R$ 187,40</div>
+          </div>
+          <div class="tx">
+            <div class="tx-ico" style="color:#ff6b5e">DE</div>
+            <div class="tx-info"><div class="t">iFood · Burger do Chefe</div><div class="s">08/06 · Delivery</div></div>
+            <div class="tx-val v-red">-R$ 42,90</div>
+          </div>
+          <div class="tx">
+            <div class="tx-ico" style="color:#58a6ff">TR</div>
+            <div class="tx-info"><div class="t">Transferência BB → MP</div><div class="s">07/06 · trânsito interno</div></div>
+            <div class="tx-val" style="color:var(--muted)">R$ 900,00</div>
+          </div>
+          <div class="tx">
+            <div class="tx-ico" style="color:#e8b33e">QS</div>
+            <div class="tx-info"><div class="t">Distribuidora Flama</div><div class="s">07/06 · Quasar-reembolso</div></div>
+            <div class="tx-val" style="color:var(--muted)">-R$ 312,00</div>
+          </div>
+          <div class="tx">
+            <div class="tx-ico" style="color:#b48cf2">CA</div>
+            <div class="tx-info"><div class="t">Energia Equatorial MA</div><div class="s">06/06 · Casa (compartilhada)</div></div>
+            <div class="tx-val v-red">-R$ 176,30</div>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-head"><span class="label">Gastos por categoria</span></div>
+          <div class="cat-row">
+            <div class="cat-line"><span>Mercado</span><span class="num"><b>R$ 412,70</b> · 34%</span></div>
+            <div class="bar"><i style="width:34%; background:#3ce28b"></i></div>
+          </div>
+          <div class="cat-row">
+            <div class="cat-line"><span>Delivery</span><span class="num"><b>R$ 196,40</b> · 16%</span></div>
+            <div class="bar"><i style="width:16%; background:#ff6b5e"></i></div>
+          </div>
+          <div class="cat-row">
+            <div class="cat-line"><span>Transporte</span><span class="num"><b>R$ 248,00</b> · 20%</span></div>
+            <div class="bar"><i style="width:20%; background:#58a6ff"></i></div>
+          </div>
+          <div class="cat-row">
+            <div class="cat-line"><span>Casa (compartilhada)</span><span class="num"><b>R$ 188,10</b> · 15%</span></div>
+            <div class="bar"><i style="width:15%; background:#b48cf2"></i></div>
+          </div>
+          <div class="cat-row">
+            <div class="cat-line"><span>Saúde</span><span class="num"><b>R$ 110,50</b> · 9%</span></div>
+            <div class="bar"><i style="width:9%; background:#e8b33e"></i></div>
+          </div>
+          <div class="cat-row" style="margin-bottom:2px">
+            <div class="cat-line"><span style="color:var(--muted)">Outros</span><span class="num"><b>R$ 70,40</b> · 6%</span></div>
+            <div class="bar"><i style="width:6%; background:#56616e"></i></div>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-head">
+            <span class="label">Fila de revisão</span>
+            <span class="pill warn">5 itens</span>
+          </div>
+          <div class="tx">
+            <div class="tx-ico" style="color:#e8b33e">?</div>
+            <div class="tx-info"><div class="t">Pag*JoseRSilva</div><div class="s">BB · natureza incerta</div></div>
+            <div class="tx-val num" style="color:var(--muted)">-R$ 85,00</div>
+          </div>
+          <div class="tx">
+            <div class="tx-ico" style="color:#e8b33e">?</div>
+            <div class="tx-info"><div class="t">Pix recebido · M. L. Costa</div><div class="s">BB · natureza incerta</div></div>
+            <div class="tx-val num" style="color:var(--muted)">R$ 230,00</div>
+          </div>
+          <div class="tx">
+            <div class="tx-ico" style="color:#ff6b5e">!</div>
+            <div class="tx-info"><div class="t">2 linhas não lidas</div><div class="s">extrato MP · 08/06</div></div>
+          </div>
+          <div style="margin-top:14px">
+            <button class="btn primary" style="width:100%" data-goto="revisar">Revisar agora</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ====================== LANÇAMENTOS ====================== -->
+    <section id="tela-lancamentos" class="hidden">
+      <div class="page-head">
+        <div>
+          <h1>Lançamentos</h1>
+          <div class="sub">junho 2026 · 47 lançamentos</div>
+        </div>
+        <button class="btn primary">+ Lançamento manual</button>
+      </div>
+
+      <div class="filters">
+        <input type="month" value="2026-06" class="mono" />
+        <select><option>Todas naturezas</option><option>pessoal</option><option>trânsito</option><option>quasar</option><option>compartilhada</option></select>
+        <select><option>Todas categorias</option><option>Mercado</option><option>Delivery</option></select>
+        <select><option>Todas contas</option><option>BB — Conta Corrente</option><option>Mercado Pago</option></select>
+      </div>
+
+      <div class="panel" style="padding: 6px 16px 10px">
+        <table>
+          <thead>
+            <tr><th>Data</th><th>Descrição</th><th>Conta</th><th>Natureza</th><th>Categoria</th><th class="r">Valor</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="num" style="color:var(--muted)">08/06</td>
+              <td><b>Mercado São Luís LTDA</b></td>
+              <td style="color:var(--muted)">Mercado Pago</td>
+              <td><span class="badge pessoal">pessoal</span></td>
+              <td>Mercado</td>
+              <td class="r num v-red">-R$ 187,40</td>
+            </tr>
+            <tr>
+              <td class="num" style="color:var(--muted)">08/06</td>
+              <td><b>iFood *Burger do Chefe</b></td>
+              <td style="color:var(--muted)">Mercado Pago</td>
+              <td><span class="badge pessoal">pessoal</span></td>
+              <td>Delivery</td>
+              <td class="r num v-red">-R$ 42,90</td>
+            </tr>
+            <tr>
+              <td class="num" style="color:var(--muted)">07/06</td>
+              <td><b>Pix enviado · Mercado Pago IP</b></td>
+              <td style="color:var(--muted)">BB — Conta</td>
+              <td><span class="badge transito">trânsito</span></td>
+              <td style="color:var(--muted2)">—</td>
+              <td class="r num" style="color:var(--muted)">-R$ 900,00</td>
+            </tr>
+            <tr>
+              <td class="num" style="color:var(--muted)">07/06</td>
+              <td><b>Distribuidora Flama</b></td>
+              <td style="color:var(--muted)">BB — Conta</td>
+              <td><span class="badge quasar">quasar</span></td>
+              <td>Quasar-reembolso</td>
+              <td class="r num" style="color:var(--muted)">-R$ 312,00</td>
+            </tr>
+            <tr>
+              <td class="num" style="color:var(--muted)">06/06</td>
+              <td><b>Energia Equatorial MA</b></td>
+              <td style="color:var(--muted)">Mercado Pago</td>
+              <td><span class="badge compartilhada">compartilhada</span></td>
+              <td>Casa (compartilhada)</td>
+              <td class="r num v-red">-R$ 176,30</td>
+            </tr>
+            <tr>
+              <td class="num" style="color:var(--muted)">05/06</td>
+              <td><b>Crédito de Benefício INSS</b></td>
+              <td style="color:var(--muted)">BB — Conta</td>
+              <td><span class="badge pessoal">pessoal</span></td>
+              <td style="color:var(--muted2)">—</td>
+              <td class="r num v-mint">+R$ 1.412,00</td>
+            </tr>
+            <tr>
+              <td class="num" style="color:var(--muted)">04/06</td>
+              <td><b>Uber *Trip</b></td>
+              <td style="color:var(--muted)">Mercado Pago</td>
+              <td><span class="badge pessoal">pessoal</span></td>
+              <td>Transporte</td>
+              <td class="r num v-red">-R$ 18,70</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="chart-note" style="margin-top:12px">Corrigir natureza ou categoria aqui cria uma regra aprendida — a próxima importação classifica sozinha.</div>
+    </section>
+
+    <!-- ====================== REVISAR ====================== -->
+    <section id="tela-revisar" class="hidden">
+      <div class="page-head">
+        <div>
+          <h1>Revisar</h1>
+          <div class="sub">5 decisões pendentes · ~2 min</div>
+        </div>
+      </div>
+
+      <div class="section-title">Natureza incerta <span class="count">· conta mista BB · 3 itens</span></div>
+
+      <div class="review-card flag">
+        <div class="review-info">
+          <div class="t">Pag*JoseRSilva</div>
+          <div class="s">BB — Conta · 06/06 · -R$ 85,00 · marcado quasar por padrão</div>
+        </div>
+        <div class="review-actions">
+          <button class="chip">Pessoal</button>
+          <button class="chip amber">Quasar ✓</button>
+          <button class="chip blue">Trânsito</button>
+        </div>
+      </div>
+      <div class="review-card flag">
+        <div class="review-info">
+          <div class="t">Pix recebido · M. L. Costa</div>
+          <div class="s">BB — Conta · 05/06 · +R$ 230,00 · marcado quasar por padrão</div>
+        </div>
+        <div class="review-actions">
+          <button class="chip">Pessoal</button>
+          <button class="chip amber">Quasar ✓</button>
+          <button class="chip blue">Trânsito</button>
+        </div>
+      </div>
+      <div class="review-card flag">
+        <div class="review-info">
+          <div class="t">Compra com cartão · Posto Ipiranga</div>
+          <div class="s">BB — Conta · 03/06 · -R$ 120,00 · marcado quasar por padrão</div>
+        </div>
+        <div class="review-actions">
+          <button class="chip">Pessoal</button>
+          <button class="chip amber">Quasar ✓</button>
+          <button class="chip blue">Trânsito</button>
+        </div>
+      </div>
+
+      <div class="section-title">Linhas não lidas <span class="count">· parser não entendeu · 2 itens</span></div>
+
+      <div class="review-card">
+        <div class="review-info">
+          <div class="raw">08-06-2026 Pagamento QR Pix MERCADINHO 2 IRMAOS R$ 23,5O R$ 1.080,15</div>
+          <div class="s" style="margin-top:7px">extrato-mp-jun.pdf · valor ilegível (O no lugar de 0)</div>
+        </div>
+        <div class="review-actions">
+          <button class="chip">Criar manual</button>
+          <button class="chip">Descartar</button>
+        </div>
+      </div>
+      <div class="review-card">
+        <div class="review-info">
+          <div class="raw">07/06/2026 TED recebida 341 0912 ... 1.2OO,00 C</div>
+          <div class="s" style="margin-top:7px">extrato-bb-jun.pdf · valor ilegível</div>
+        </div>
+        <div class="review-actions">
+          <button class="chip">Criar manual</button>
+          <button class="chip">Descartar</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ====================== CATEGORIAS ====================== -->
+    <section id="tela-categorias" class="hidden">
+      <div class="page-head">
+        <div>
+          <h1>Categorias</h1>
+          <div class="sub">12 categorias · correções viram regras</div>
+        </div>
+      </div>
+
+      <div class="filters">
+        <input placeholder="Nova categoria" style="width:260px" />
+        <button class="btn primary">Criar</button>
+      </div>
+
+      <div class="cat-grid">
+        <div class="cat-card"><span class="dot" style="background:#3ce28b"></span><span class="nome">Mercado</span><span class="origem">sistema</span></div>
+        <div class="cat-card"><span class="dot" style="background:#ff6b5e"></span><span class="nome">Alimentação fora/Delivery</span><span class="origem">sistema</span></div>
+        <div class="cat-card"><span class="dot" style="background:#58a6ff"></span><span class="nome">Transporte</span><span class="origem">sistema</span></div>
+        <div class="cat-card"><span class="dot" style="background:#b48cf2"></span><span class="nome">Casa (compartilhada)</span><span class="origem">sistema</span></div>
+        <div class="cat-card"><span class="dot" style="background:#e8b33e"></span><span class="nome">Saúde</span><span class="origem">sistema</span></div>
+        <div class="cat-card"><span class="dot" style="background:#3ce28b"></span><span class="nome">Moradia</span><span class="origem">sistema</span></div>
+        <div class="cat-card"><span class="dot" style="background:#58a6ff"></span><span class="nome">Lazer</span><span class="origem">sistema</span></div>
+        <div class="cat-card"><span class="dot" style="background:#b48cf2"></span><span class="nome">Assinaturas</span><span class="origem">sistema</span></div>
+        <div class="cat-card"><span class="dot" style="background:#e8b33e"></span><span class="nome">Vestuário</span><span class="origem">sistema</span></div>
+        <div class="cat-card"><span class="dot" style="background:#3ce28b"></span><span class="nome">Educação</span><span class="origem">sistema</span></div>
+        <div class="cat-card"><span class="dot" style="background:#e8b33e"></span><span class="nome">Quasar-reembolso</span><span class="origem">sistema</span></div>
+        <div class="cat-card"><span class="dot" style="background:#56616e"></span><span class="nome">Outros</span><span class="origem">sistema</span></div>
+      </div>
+    </section>
+
+    <!-- ====================== UPLOAD ====================== -->
+    <section id="tela-upload" class="hidden">
+      <div class="page-head">
+        <div>
+          <h1>Subir extratos</h1>
+          <div class="sub">PDF · dedup automática · pode repetir arquivo</div>
+        </div>
+      </div>
+
+      <div class="conta-pills">
+        <button class="conta-pill sel"><span class="b-dot" style="background:#e8b33e"></span>BB — Conta Corrente</button>
+        <button class="conta-pill"><span class="b-dot" style="background:#58a6ff"></span>Mercado Pago</button>
+      </div>
+
+      <div class="dropzone">
+        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#3ce28b" stroke-width="1.6" style="margin:0 auto"><path d="M12 16V4m0 0l-4 4m4-4l4 4"/><path d="M4 16v3a2 2 0 002 2h12a2 2 0 002-2v-3"/></svg>
+        <div class="big">Arraste o extrato PDF aqui</div>
+        <div class="sub">ou clique para escolher · até 20 MB</div>
+      </div>
+
+      <div class="panel" style="margin-top:18px; display:flex; align-items:center; gap:18px">
+        <span class="pill ok">✓ processado</span>
+        <div style="flex:1">
+          <b>extrato-bb-jun.pdf</b>
+          <div class="chart-note" style="margin-top:3px">
+            <span class="num">31</span> linhas lidas ·
+            <span class="num v-mint">24</span> novas ·
+            <span class="num">5</span> duplicadas ignoradas ·
+            <span class="num v-amber">2</span> em revisão
+          </div>
+        </div>
+        <button class="btn ghost" data-goto="revisar">Revisar →</button>
+      </div>
+    </section>
+  </main>
+</div>
+
+<script>
+// Navegação do protótipo (sidebar + links internos + ?tela=)
+const telas = ['visao', 'lancamentos', 'revisar', 'categorias', 'upload'];
+
+function mostrar(tela) {
+  if (tela === 'login') {
+    document.getElementById('shell').classList.add('hidden');
+    document.getElementById('tela-login').classList.remove('hidden');
+    return;
+  }
+  document.getElementById('shell').classList.remove('hidden');
+  document.getElementById('tela-login').classList.add('hidden');
+  for (const t of telas) {
+    document.getElementById('tela-' + t).classList.toggle('hidden', t !== tela);
+  }
+  document.querySelectorAll('.nav-item').forEach((b) => {
+    b.classList.toggle('active', b.dataset.tela === tela);
+  });
+}
+
+document.querySelectorAll('[data-tela]').forEach((b) =>
+  b.addEventListener('click', () => mostrar(b.dataset.tela))
+);
+document.querySelectorAll('[data-goto]').forEach((el) =>
+  el.addEventListener('click', () => mostrar(el.dataset.goto))
+);
+
+const inicial = new URLSearchParams(location.search).get('tela') || 'visao';
+mostrar(telas.includes(inicial) || inicial === 'login' ? inicial : 'visao');
+</script>
+</body>
+</html>

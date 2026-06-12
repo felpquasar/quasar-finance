@@ -1,0 +1,17 @@
+{
+  "banco": "bb",
+  "arquivo": "extrato junho bb.pdf (extraído visualmente — PDF sem camada de texto)",
+  "lancamentos": [
+    { "data": "2026-06-01", "descricao": "Pix - Enviado Felipe Pereira Ferreira", "valor": -200.00, "id_externo": "60.101" },
+    { "data": "2026-06-02", "descricao": "Pix - Recebido 62448988340 BRENO GUILHERM", "valor": 30.00, "id_externo": "21.842.153.960.791" },
+    { "data": "2026-06-05", "descricao": "Recebimento de Proventos 07.069.487/0005-31 F. C. OLIVEIRA & CI", "valor": 1480.00, "id_externo": "769.104" },
+    { "data": "2026-06-05", "descricao": "Pix - Enviado Felipe Pereira Ferreira", "valor": -1000.00, "id_externo": "60.501" },
+    { "data": "2026-06-08", "descricao": "Pix - Recebido 02333952377 Francisco Wall", "valor": 95.00, "id_externo": "72.006.532.912.801" },
+    { "data": "2026-06-08", "descricao": "Pix - Recebido 07644755330 Felipe Pereira", "valor": 75.00, "id_externo": "80.651.143.532.801" },
+    { "data": "2026-06-08", "descricao": "Pix - Recebido 07644755330 Felipe Pereira", "valor": 50.00, "id_externo": "80.701.558.366.141" },
+    { "data": "2026-06-08", "descricao": "Pix - Enviado Felipe Pereira Ferreira", "valor": -901.91, "id_externo": "60.801" },
+    { "data": "2026-06-09", "descricao": "Pix - Recebido 00006457893309 MARCOS DOS", "valor": 130.00, "id_externo": "91.739.557.105.632" },
+    { "data": "2026-06-11", "descricao": "Pix - Recebido 05610020379 Adelino Machad", "valor": 26.00, "id_externo": "111.015.429.892.301" },
+    { "data": "2026-06-11", "descricao": "Pix - Recebido 00061277590303 ANA KAROLIN", "valor": 55.00, "id_externo": "111.640.525.027.002" }
+  ]
+}
