@@ -14,7 +14,7 @@ resumoRouter.get('/', async (req, res) => {
     .toISOString()
     .slice(0, 10);
 
-  const [lancsR, pendR, splitsR, receberR] = await Promise.all([
+  const [lancsR, pendR, splitsR, receberR, recR] = await Promise.all([
     supabase
       .from('lancamentos')
       .select('id, valor, natureza, status, categoria_id, categorias(nome)')
@@ -28,8 +28,9 @@ resumoRouter.get('/', async (req, res) => {
       .eq('status', 'aberta'),
     supabase.from('splits').select('lancamento_id, percentual_felipe').eq('user_id', req.user.id),
     supabase.from('a_receber').select('valor').eq('user_id', req.user.id).eq('status', 'aberto'),
+    supabase.from('recorrentes').select('dia_vencimento, valor_estimado').eq('user_id', req.user.id).eq('ativo', true),
   ]);
-  const erro = lancsR.error || pendR.error || splitsR.error || receberR.error;
+  const erro = lancsR.error || pendR.error || splitsR.error || receberR.error || recR.error;
   if (erro) return res.status(500).json({ erro: erro.message });
 
   const lancs = lancsR.data;
@@ -60,7 +61,30 @@ resumoRouter.get('/', async (req, res) => {
 
   const APORTE_META = 417; // R$ 5.000 em 12 meses — régua do sistema inteiro
 
+  // Projeção de fechamento (só faz sentido no mês corrente):
+  // gasto até agora + média diária projetada nos dias restantes
+  // + recorrentes ativas que ainda vão vencer neste mês.
+  const hoje = new Date();
+  const ehMesCorrente = hoje.toISOString().slice(0, 7) === mes;
+  let projecao = null;
+  if (ehMesCorrente) {
+    const diaHoje = hoje.getDate();
+    const diasNoMes = new Date(hoje.getFullYear(), hoje.getMonth() + 1, 0).getDate();
+    const gastoAtual = Math.abs(gastos);
+    const mediaDiaria = diaHoje > 0 ? gastoAtual / diaHoje : 0;
+    const recorrentesFuturas = (recR.data || [])
+      .filter((r) => r.dia_vencimento > diaHoje && r.valor_estimado)
+      .reduce((s, r) => s + Number(r.valor_estimado), 0);
+    const gastoProjetado = gastoAtual + mediaDiaria * (diasNoMes - diaHoje) + recorrentesFuturas;
+    projecao = {
+      gasto_projetado: Math.round(gastoProjetado * 100) / 100,
+      sobra_projetada: Math.round((entradas - gastoProjetado) * 100) / 100,
+      recorrentes_a_vencer: Math.round(recorrentesFuturas * 100) / 100,
+    };
+  }
+
   res.json({
+    projecao,
     mes,
     entradas,
     gastos: Math.abs(gastos),

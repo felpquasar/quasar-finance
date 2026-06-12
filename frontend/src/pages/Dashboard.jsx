@@ -112,12 +112,16 @@ export default function Dashboard() {
 
       <div className="kpis">
         <div className="kpi hero">
-          <span className="label">Sobra do mês</span>
-          <div className={`valor num ${sobraOk ? 'v-mint' : 'v-red'}`}>{fmt(resumo.sobra)}</div>
+          <span className="label">{resumo.projecao ? 'Sobra projetada' : 'Sobra do mês'}</span>
+          <div className={`valor num ${(resumo.projecao?.sobra_projetada ?? resumo.sobra) >= resumo.aporte_meta ? 'v-mint' : 'v-red'}`}>
+            {fmt(resumo.projecao?.sobra_projetada ?? resumo.sobra)}
+          </div>
           <div className="hint">
-            {sobraOk
-              ? <>✓ aporte de <b className="num">{fmt(resumo.aporte_meta)}</b> garantido</>
-              : <>faltam <b className="num">{fmt(Math.abs(resumo.distancia_meta))}</b> p/ aporte de R$ 417</>}
+            {resumo.projecao
+              ? <>sobra atual <b className="num">{fmt(resumo.sobra)}</b> · projeção até o dia 30{resumo.projecao.recorrentes_a_vencer > 0 && <> · {fmt(resumo.projecao.recorrentes_a_vencer)} em contas a vencer</>}</>
+              : sobraOk
+                ? <>✓ aporte de <b className="num">{fmt(resumo.aporte_meta)}</b> garantido</>
+                : <>faltam <b className="num">{fmt(Math.abs(resumo.distancia_meta))}</b> p/ aporte de R$ 417</>}
           </div>
         </div>
         <div className="kpi">

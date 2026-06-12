@@ -9,6 +9,7 @@ import Lancamentos from './pages/Lancamentos.jsx';
 import Revisar from './pages/Revisar.jsx';
 import Categorias from './pages/Categorias.jsx';
 import AReceber from './pages/AReceber.jsx';
+import Metas from './pages/Metas.jsx';
 
 const ICONES = {
   visao: (
@@ -40,6 +41,12 @@ const ICONES = {
       <path d="M3 17l3 3h12l3-3" /><path d="M3 17v3h18v-3" />
     </svg>
   ),
+  metas: (
+    <svg className="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <circle cx="12" cy="12" r="9" /><circle cx="12" cy="12" r="5" />
+      <circle cx="12" cy="12" r="1.2" fill="currentColor" />
+    </svg>
+  ),
   upload: (
     <svg className="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
       <path d="M12 16V4m0 0l-4 4m4-4l4 4" /><path d="M4 16v3a2 2 0 002 2h12a2 2 0 002-2v-3" />
@@ -50,6 +57,7 @@ const ICONES = {
 export default function App() {
   const [sessao, setSessao] = useState(undefined);
   const [badge, setBadge] = useState(0);
+  const [reserva, setReserva] = useState({ acumulado: 0, alvo: 5000 });
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => setSessao(data.session));
@@ -59,10 +67,12 @@ export default function App() {
 
   const carregarBadge = useCallback(async () => {
     try {
-      const r = await api('/resumo');
+      const [r, metas] = await Promise.all([api('/resumo'), api('/metas')]);
       setBadge((r.revisao_pendente || 0) + (r.pendencias_abertas || 0));
+      const m = metas.find((x) => Number(x.valor_alvo) > 0);
+      if (m) setReserva({ acumulado: m.acumulado, alvo: Number(m.valor_alvo) });
     } catch {
-      /* badge é cosmético; não bloqueia o app */
+      /* badge/anel são cosméticos; não bloqueiam o app */
     }
   }, []);
 
@@ -93,6 +103,7 @@ export default function App() {
           {ICONES.revisar}Revisar
           {badge > 0 && <span className="nav-badge">{badge}</span>}
         </NavLink>
+        <NavLink to="/metas" className="nav-item">{ICONES.metas}Metas</NavLink>
         <NavLink to="/areceber" className="nav-item">{ICONES.areceber}A receber</NavLink>
         <NavLink to="/categorias" className="nav-item">{ICONES.categorias}Categorias</NavLink>
         <NavLink to="/upload" className="nav-item">{ICONES.upload}Subir extratos</NavLink>
@@ -102,13 +113,17 @@ export default function App() {
             <circle cx="22" cy="22" r="18" fill="none" stroke="#1f2733" strokeWidth="5" />
             <circle
               cx="22" cy="22" r="18" fill="none" stroke="#3ce28b" strokeWidth="5"
-              strokeDasharray="113" strokeDashoffset="113" strokeLinecap="round"
+              strokeDasharray="113"
+              strokeDashoffset={113 - 113 * Math.min(1, reserva.acumulado / reserva.alvo)}
+              strokeLinecap="round"
               transform="rotate(-90 22 22)"
             />
           </svg>
           <div>
             <span className="label">Reserva</span>
-            <span className="num">R$ 0,00</span>
+            <span className="num">
+              {reserva.acumulado.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+            </span>
           </div>
         </div>
         <button className="sair" onClick={() => supabase.auth.signOut()}>Sair →</button>
@@ -118,6 +133,7 @@ export default function App() {
           <Route path="/" element={<Dashboard />} />
           <Route path="/lancamentos" element={<Lancamentos />} />
           <Route path="/revisar" element={<Revisar />} />
+          <Route path="/metas" element={<Metas />} />
           <Route path="/areceber" element={<AReceber />} />
           <Route path="/categorias" element={<Categorias />} />
           <Route path="/upload" element={<Upload />} />
