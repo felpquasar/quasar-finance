@@ -8,6 +8,7 @@ import Upload from './pages/Upload.jsx';
 import Lancamentos from './pages/Lancamentos.jsx';
 import Revisar from './pages/Revisar.jsx';
 import Categorias from './pages/Categorias.jsx';
+import AReceber from './pages/AReceber.jsx';
 
 const ICONES = {
   visao: (
@@ -31,6 +32,12 @@ const ICONES = {
   categorias: (
     <svg className="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
       <path d="M3 7l9-4 9 4-9 4-9-4z" /><path d="M3 12l9 4 9-4" /><path d="M3 17l9 4 9-4" />
+    </svg>
+  ),
+  areceber: (
+    <svg className="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <path d="M12 3v10m0 0l-3.5-3.5M12 13l3.5-3.5" />
+      <path d="M3 17l3 3h12l3-3" /><path d="M3 17v3h18v-3" />
     </svg>
   ),
   upload: (
@@ -86,6 +93,7 @@ export default function App() {
           {ICONES.revisar}Revisar
           {badge > 0 && <span className="nav-badge">{badge}</span>}
         </NavLink>
+        <NavLink to="/areceber" className="nav-item">{ICONES.areceber}A receber</NavLink>
         <NavLink to="/categorias" className="nav-item">{ICONES.categorias}Categorias</NavLink>
         <NavLink to="/upload" className="nav-item">{ICONES.upload}Subir extratos</NavLink>
 
@@ -110,6 +118,7 @@ export default function App() {
           <Route path="/" element={<Dashboard />} />
           <Route path="/lancamentos" element={<Lancamentos />} />
           <Route path="/revisar" element={<Revisar />} />
+          <Route path="/areceber" element={<AReceber />} />
           <Route path="/categorias" element={<Categorias />} />
           <Route path="/upload" element={<Upload />} />
           <Route path="*" element={<Navigate to="/" />} />

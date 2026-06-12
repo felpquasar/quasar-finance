@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { supabase } from '../supabase.js';
 import { normalizarDescricao, hashDedup } from '../lib/normalize.js';
+import { sincronizarDerivados } from '../services/derivados.js';
 
 export const lancamentosRouter = Router();
 
@@ -84,9 +85,18 @@ lancamentosRouter.patch('/:id', async (req, res) => {
     .update(patch)
     .eq('id', req.params.id)
     .eq('user_id', req.user.id)
-    .select()
+    .select('*, contas(natureza_default)')
     .single();
   if (error) return res.status(500).json({ erro: error.message });
+
+  // Natureza mudou -> recalcula split/a_receber derivados
+  if (natureza !== undefined) {
+    await sincronizarDerivados({
+      userId: req.user.id,
+      lanc,
+      contaNaturezaDefault: lanc.contas?.natureza_default,
+    });
+  }
 
   // Correção do Felipe vira regra aprendida (ex: "mercado sao luis = Mercado, sempre").
   // Padrão já conhecido é atualizado em vez de duplicado.

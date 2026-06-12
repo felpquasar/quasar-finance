@@ -2,6 +2,7 @@ import { supabase } from '../supabase.js';
 import { getParser } from '../parsers/index.js';
 import { normalizarDescricao, hashDedup } from '../lib/normalize.js';
 import { classificarNatureza, aplicarRegraCategoria } from './natureza.js';
+import { sincronizarDerivados } from './derivados.js';
 
 // Pipeline da Fase 1: PARSER -> DEDUP -> NATUREZA -> (regras de categoria).
 // Princípio inviolável: nunca trava por arquivo ruim — linha ilegível vira
@@ -72,9 +73,19 @@ export async function ingestLancamentos({ userId, conta, brutos, pendencias = []
     const { data, error } = await supabase
       .from('lancamentos')
       .upsert(unicos, { onConflict: 'user_id,hash_dedup', ignoreDuplicates: true })
-      .select('id');
+      .select('id, natureza, valor');
     if (error) throw error;
     inseridos = data || [];
+  }
+
+  // Split Yulae / Quasar-reembolso para os recém-inseridos que precisam
+  for (const row of inseridos) {
+    if (
+      row.natureza === 'compartilhada' ||
+      (row.natureza === 'quasar' && conta.natureza_default === 'pessoal')
+    ) {
+      await sincronizarDerivados({ userId, lanc: row, contaNaturezaDefault: conta.natureza_default });
+    }
   }
 
   // Fila de pendências (linhas ilegíveis)
