@@ -3,6 +3,7 @@ import { getParser } from '../parsers/index.js';
 import { normalizarDescricao, hashDedup } from '../lib/normalize.js';
 import { classificarNatureza, aplicarRegraCategoria } from './natureza.js';
 import { sincronizarDerivados } from './derivados.js';
+import { aplicarCategorizacaoIA } from './ia.js';
 
 // Pipeline da Fase 1: PARSER -> DEDUP -> NATUREZA -> (regras de categoria).
 // Princípio inviolável: nunca trava por arquivo ruim — linha ilegível vira
@@ -73,7 +74,7 @@ export async function ingestLancamentos({ userId, conta, brutos, pendencias = []
     const { data, error } = await supabase
       .from('lancamentos')
       .upsert(unicos, { onConflict: 'user_id,hash_dedup', ignoreDuplicates: true })
-      .select('id, natureza, valor');
+      .select('id, natureza, valor, data, descricao, categoria_id');
     if (error) throw error;
     inseridos = data || [];
   }
@@ -102,10 +103,21 @@ export async function ingestLancamentos({ userId, conta, brutos, pendencias = []
     if (error) throw error;
   }
 
+  // [5] CATEGORIZAÇÃO camada 2 (IA): gastos pessoais/compartilhados que as
+  // regras (camada 1) não categorizaram. Falha de IA não trava o upload.
+  const semCategoria = inseridos.filter(
+    (r) =>
+      !r.categoria_id &&
+      (r.natureza === 'pessoal' || r.natureza === 'compartilhada')
+  );
+  const ia = await aplicarCategorizacaoIA({ supabase, userId, lancamentos: semCategoria });
+
   return {
     linhas_lidas: brutos.length,
     inseridos: inseridos.length,
     duplicados: unicos.length - inseridos.length,
     pendencias: pendencias.length,
+    ia_categorizados: ia.categorizados,
+    ia_incertos: ia.incertos,
   };
 }

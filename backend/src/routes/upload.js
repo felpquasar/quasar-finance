@@ -2,7 +2,8 @@ import { Router } from 'express';
 import multer from 'multer';
 import pdfParse from 'pdf-parse/lib/pdf-parse.js';
 import { supabase } from '../supabase.js';
-import { ingestExtrato } from '../services/ingest.js';
+import { ingestExtrato, ingestLancamentos } from '../services/ingest.js';
+import { iaDisponivel, ocrExtratoPdf } from '../services/ia.js';
 
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 20 * 1024 * 1024 } });
 export const uploadRouter = Router();
@@ -23,12 +24,35 @@ uploadRouter.post('/', upload.single('arquivo'), async (req, res) => {
     if (error || !conta) return res.status(404).json({ erro: 'Conta não encontrada' });
 
     const pdf = await pdfParse(req.file.buffer);
-    const resultado = await ingestExtrato({
-      userId: req.user.id,
-      conta,
-      textoPdf: pdf.text,
-      nomeArquivo: req.file.originalname,
-    });
+    const temTexto = pdf.text.replace(/\s/g, '').length > 50;
+
+    let resultado;
+    if (temTexto) {
+      resultado = await ingestExtrato({
+        userId: req.user.id,
+        conta,
+        textoPdf: pdf.text,
+        nomeArquivo: req.file.originalname,
+      });
+    } else if (iaDisponivel()) {
+      // PDF sem camada de texto (ex: app do BB exporta imagem) -> OCR via IA
+      const { lancamentos, pendencias } = await ocrExtratoPdf({
+        pdfBuffer: req.file.buffer,
+        banco: conta.banco,
+      });
+      resultado = await ingestLancamentos({
+        userId: req.user.id,
+        conta,
+        brutos: lancamentos,
+        pendencias,
+        nomeArquivo: req.file.originalname,
+      });
+      resultado.ocr = true;
+    } else {
+      return res.status(422).json({
+        erro: 'PDF sem texto (imagem). OCR requer ANTHROPIC_API_KEY no backend.',
+      });
+    }
 
     res.json(resultado);
   } catch (e) {

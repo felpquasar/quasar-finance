@@ -12,6 +12,8 @@ export default function Lancamentos() {
   const [contas, setContas] = useState([]);
   const [erro, setErro] = useState('');
   const [formAberto, setFormAberto] = useState(false);
+  const [iaRodando, setIaRodando] = useState(false);
+  const [iaMsg, setIaMsg] = useState('');
   const [manual, setManual] = useState({ data: '', descricao: '', valor: '', conta_id: '', categoria_id: '' });
 
   const carregar = useCallback(() => {
@@ -77,12 +79,38 @@ export default function Lancamentos() {
           <h1>Lançamentos</h1>
           <div className="sub">{lancs.length} no filtro atual</div>
         </div>
-        <button className="btn primary" onClick={() => setFormAberto(!formAberto)}>
-          {formAberto ? 'Fechar' : '+ Lançamento manual'}
-        </button>
+        <div style={{ display: 'flex', gap: 10 }}>
+          <button
+            className="btn ghost"
+            disabled={iaRodando}
+            onClick={async () => {
+              setIaRodando(true);
+              setIaMsg('');
+              try {
+                const r = await api('/ia/categorizar', { method: 'POST' });
+                setIaMsg(
+                  r.mensagem ||
+                    `✓ ${r.categorizados} categorizados pela IA${r.incertos > 0 ? ` · ${r.incertos} incertos foram p/ Revisar` : ''}`
+                );
+                carregar();
+                notificarMudanca();
+              } catch (e) {
+                setErro(e.message);
+              } finally {
+                setIaRodando(false);
+              }
+            }}
+          >
+            {iaRodando ? 'Categorizando...' : '✦ Categorizar com IA'}
+          </button>
+          <button className="btn primary" onClick={() => setFormAberto(!formAberto)}>
+            {formAberto ? 'Fechar' : '+ Lançamento manual'}
+          </button>
+        </div>
       </div>
 
       {erro && <div className="erro" onClick={() => setErro('')}>{erro}</div>}
+      {iaMsg && <div className="ok-msg" onClick={() => setIaMsg('')}>{iaMsg}</div>}
 
       {formAberto && (
         <form className="panel filters" style={{ marginBottom: 16 }} onSubmit={addManual}>
