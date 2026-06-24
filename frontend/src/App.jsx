@@ -10,6 +10,7 @@ import Revisar from './pages/Revisar.jsx';
 import Categorias from './pages/Categorias.jsx';
 import AReceber from './pages/AReceber.jsx';
 import Metas from './pages/Metas.jsx';
+import Chat from './pages/Chat.jsx';
 
 const ICONES = {
   visao: (
@@ -50,6 +51,11 @@ const ICONES = {
   upload: (
     <svg className="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
       <path d="M12 16V4m0 0l-4 4m4-4l4 4" /><path d="M4 16v3a2 2 0 002 2h12a2 2 0 002-2v-3" />
+    </svg>
+  ),
+  chat: (
+    <svg className="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <path d="M21 12a8 8 0 01-8 8H7l-4 3v-4.5A8 8 0 1121 12z" />
     </svg>
   ),
 };
@@ -104,6 +110,7 @@ export default function App() {
           {badge > 0 && <span className="nav-badge">{badge}</span>}
         </NavLink>
         <NavLink to="/metas" className="nav-item">{ICONES.metas}Metas</NavLink>
+        <NavLink to="/assistente" className="nav-item">{ICONES.chat}Assistente</NavLink>
         <NavLink to="/areceber" className="nav-item">{ICONES.areceber}A receber</NavLink>
         <NavLink to="/categorias" className="nav-item">{ICONES.categorias}Categorias</NavLink>
         <NavLink to="/upload" className="nav-item">{ICONES.upload}Subir extratos</NavLink>
@@ -134,6 +141,7 @@ export default function App() {
           <Route path="/lancamentos" element={<Lancamentos />} />
           <Route path="/revisar" element={<Revisar />} />
           <Route path="/metas" element={<Metas />} />
+          <Route path="/assistente" element={<Chat />} />
           <Route path="/areceber" element={<AReceber />} />
           <Route path="/categorias" element={<Categorias />} />
           <Route path="/upload" element={<Upload />} />

@@ -281,6 +281,38 @@ td select option { background: var(--panel2); }
 .ok-msg { background: var(--panel); border: 1px solid var(--mint); border-radius: 10px; padding: 12px 16px; margin-bottom: 16px; color: var(--mint); font-size: 13px; }
 .vazio { color: var(--muted); text-align: center; padding: 24px; font-size: 13px; }
 
+/* ============ Assistente (chat reativo) ============ */
+.chat-janela {
+  display: flex; flex-direction: column; gap: 12px;
+  min-height: 340px; max-height: calc(100vh - 260px); overflow-y: auto;
+  margin-bottom: 14px;
+}
+.chat-vazio { margin: auto; text-align: center; color: var(--muted); }
+.chat-vazio p { margin-bottom: 14px; font-size: 13px; }
+.chat-sugestoes { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; max-width: 560px; }
+.chat-sugestoes .btn { font-size: 12px; }
+.chat-msg { display: flex; }
+.chat-msg.user { justify-content: flex-end; }
+.chat-msg.assistant { justify-content: flex-start; }
+.chat-bolha {
+  max-width: 76%; padding: 11px 14px; border-radius: 14px;
+  font-size: 13.5px; line-height: 1.5; white-space: pre-wrap; word-break: break-word;
+}
+.chat-msg.user .chat-bolha {
+  background: var(--mint); color: #06130c; border-bottom-right-radius: 4px; font-weight: 500;
+}
+.chat-msg.assistant .chat-bolha {
+  background: var(--panel2); border: 1px solid var(--border); color: var(--text);
+  border-bottom-left-radius: 4px;
+}
+.chat-pensando { color: var(--muted); font-style: italic; }
+.chat-input { display: flex; gap: 10px; }
+.chat-input input {
+  flex: 1; background: var(--panel); border: 1px solid var(--border2); border-radius: 10px;
+  padding: 12px 14px; color: var(--text); font-family: var(--sans); font-size: 14px;
+}
+.chat-input input:focus { outline: none; border-color: var(--mint); }
+
 /* ============ Mobile (≤768px): sidebar vira tab bar inferior ============ */
 @media (max-width: 768px) {
   #root { flex-direction: column; }

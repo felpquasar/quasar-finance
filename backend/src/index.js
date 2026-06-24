@@ -12,6 +12,7 @@ import { areceberRouter } from './routes/areceber.js';
 import { iaRouter } from './routes/ia.js';
 import { metasRouter } from './routes/metas.js';
 import { recorrentesRouter } from './routes/recorrentes.js';
+import { chatRouter } from './routes/chat.js';
 
 const app = express();
 app.use(cors());
@@ -30,6 +31,7 @@ app.use('/api/areceber', areceberRouter);
 app.use('/api/ia', iaRouter);
 app.use('/api/metas', metasRouter);
 app.use('/api/recorrentes', recorrentesRouter);
+app.use('/api/chat', chatRouter);
 
 const port = process.env.PORT || 3001;
 app.listen(port, () => console.log(`API financeira rodando em http://localhost:${port}`));
