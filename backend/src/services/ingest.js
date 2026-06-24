@@ -3,6 +3,7 @@ import { getParser } from '../parsers/index.js';
 import { normalizarDescricao, hashDedup } from '../lib/normalize.js';
 import { classificarNatureza, aplicarRegraCategoria } from './natureza.js';
 import { sincronizarDerivados } from './derivados.js';
+import { sincronizarParcelas } from './parcelas.js';
 import { aplicarCategorizacaoIA } from './ia.js';
 
 // Pipeline da Fase 1: PARSER -> DEDUP -> NATUREZA -> (regras de categoria).
@@ -21,7 +22,15 @@ export async function ingestExtrato({ userId, conta, textoPdf, nomeArquivo }) {
 
 // Etapas [2]+ do pipeline para lançamentos já estruturados
 // (usado pelo parser de PDF e por importações via OCR/JSON)
-export async function ingestLancamentos({ userId, conta, brutos, pendencias = [], nomeArquivo }) {
+export async function ingestLancamentos({
+  userId,
+  conta,
+  brutos,
+  pendencias = [],
+  nomeArquivo,
+  origem = 'extrato',
+  mesRefFatura = null, // "yyyy-mm-01": liga o motor de parcelas (faturas de cartão)
+}) {
   // Regras do usuário, carregadas uma vez
   const { data: regras, error: errRegras } = await supabase
     .from('regras')
@@ -48,7 +57,9 @@ export async function ingestLancamentos({ userId, conta, brutos, pendencias = []
       status,
       categoria_id:
         categoria_id ?? aplicarRegraCategoria({ descricaoNormalizada: descricao_normalizada, regras }),
-      origem: 'extrato',
+      parcela_num: l.parcela_num ?? null,
+      parcela_total: l.parcela_total ?? null,
+      origem,
       hash_dedup: hashDedup({
         contaId: conta.id,
         data: l.data,
@@ -74,7 +85,7 @@ export async function ingestLancamentos({ userId, conta, brutos, pendencias = []
     const { data, error } = await supabase
       .from('lancamentos')
       .upsert(unicos, { onConflict: 'user_id,hash_dedup', ignoreDuplicates: true })
-      .select('id, natureza, valor, data, descricao, categoria_id');
+      .select('id, natureza, valor, data, descricao, categoria_id, parcela_num, parcela_total');
     if (error) throw error;
     inseridos = data || [];
   }
@@ -87,6 +98,13 @@ export async function ingestLancamentos({ userId, conta, brutos, pendencias = []
     ) {
       await sincronizarDerivados({ userId, lanc: row, contaNaturezaDefault: conta.natureza_default });
     }
+  }
+
+  // Motor de parcelas: faturas de cartão geram compras_parceladas +
+  // compromissos vincendos (alimenta a projeção). No-op para extratos.
+  let parcelas = { parcelados: 0, compras: 0, compromissos: 0 };
+  if (mesRefFatura) {
+    parcelas = await sincronizarParcelas({ userId, lancamentos: inseridos, mesRefFatura });
   }
 
   // Fila de pendências (linhas ilegíveis)
@@ -119,5 +137,7 @@ export async function ingestLancamentos({ userId, conta, brutos, pendencias = []
     pendencias: pendencias.length,
     ia_categorizados: ia.categorizados,
     ia_incertos: ia.incertos,
+    parcelas_compras: parcelas.compras,
+    parcelas_compromissos: parcelas.compromissos,
   };
 }

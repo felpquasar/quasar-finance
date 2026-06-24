@@ -3,7 +3,13 @@ import multer from 'multer';
 import pdfParse from 'pdf-parse/lib/pdf-parse.js';
 import { supabase } from '../supabase.js';
 import { ingestExtrato, ingestLancamentos } from '../services/ingest.js';
-import { iaDisponivel, ocrExtratoPdf } from '../services/ia.js';
+import { iaDisponivel, ocrExtratoPdf, ocrFaturaPdf } from '../services/ia.js';
+
+// "yyyy-mm-01" do mês de competência da fatura (a partir do vencimento).
+function mesRefDeVencimento(vencimento) {
+  const base = /^\d{4}-\d{2}-\d{2}$/.test(vencimento || '') ? new Date(vencimento) : new Date();
+  return `${base.getFullYear()}-${String(base.getMonth() + 1).padStart(2, '0')}-01`;
+}
 
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 20 * 1024 * 1024 } });
 export const uploadRouter = Router();
@@ -27,7 +33,28 @@ uploadRouter.post('/', upload.single('arquivo'), async (req, res) => {
     const temTexto = pdf.text.replace(/\s/g, '').length > 50;
 
     let resultado;
-    if (temTexto) {
+    if (conta.tipo === 'cartao') {
+      // Fatura de cartão: sempre via OCR (extrai parcelas e fecha pelo total).
+      if (!iaDisponivel()) {
+        return res.status(422).json({ erro: 'Fatura de cartão requer ANTHROPIC_API_KEY no backend (OCR).' });
+      }
+      const { lancamentos, pendencias, vencimento } = await ocrFaturaPdf({
+        pdfBuffer: req.file.buffer,
+        banco: conta.banco,
+      });
+      resultado = await ingestLancamentos({
+        userId: req.user.id,
+        conta,
+        brutos: lancamentos,
+        pendencias,
+        nomeArquivo: req.file.originalname,
+        origem: 'fatura',
+        mesRefFatura: mesRefDeVencimento(vencimento),
+      });
+      resultado.ocr = true;
+      resultado.fatura = true;
+      resultado.vencimento = vencimento;
+    } else if (temTexto) {
       resultado = await ingestExtrato({
         userId: req.user.id,
         conta,

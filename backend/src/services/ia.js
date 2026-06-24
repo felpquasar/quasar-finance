@@ -244,3 +244,130 @@ Dica: um único movimento com sinal trocado gera diferença igual a 2x o valor d
   }
   return { lancamentos: dados.lancamentos, pendencias };
 }
+
+// OCR de FATURA de cartão (PDF imagem/texto). Difere do extrato:
+// - cada compra parcelada exibe a parcela do mês ("03/12") -> parcela_num/total;
+// - validação fecha pela "total desta fatura" (Σ lançamentos = -total a pagar);
+// - id_externo carrega "num/total" da parcela, garantindo hash de dedup único
+//   por parcela (a fatura repete a data da compra original em todo mês).
+// Retorna { lancamentos: [{data, descricao, valor, id_externo, parcela_num,
+//   parcela_total}], pendencias, vencimento (YYYY-MM-DD|null) }.
+// CALIBRAR com fatura real (Nubank): conferir layout de parcela e o que entra
+// no "total desta fatura" (pagamento anterior/estornos podem ficar de fora).
+export async function ocrFaturaPdf({ pdfBuffer, banco }) {
+  const schema = {
+    type: 'object',
+    properties: {
+      lancamentos: {
+        type: 'array',
+        items: {
+          type: 'object',
+          properties: {
+            data: { type: 'string', description: 'Data da compra em YYYY-MM-DD (nas parceladas, a data da compra original impressa na linha)' },
+            descricao: { type: 'string', description: 'Estabelecimento/descrição, sem o marcador de parcela e sem horários' },
+            valor: { type: 'number', description: 'Compra/encargo = NEGATIVO; estorno/crédito/pagamento = POSITIVO' },
+            parcela_num: { type: 'integer', description: 'Número da parcela atual (1 desta fatura); 0 se a compra NÃO é parcelada' },
+            parcela_total: { type: 'integer', description: 'Total de parcelas da compra; 0 se NÃO é parcelada' },
+          },
+          required: ['data', 'descricao', 'valor', 'parcela_num', 'parcela_total'],
+          additionalProperties: false,
+        },
+      },
+      total_compras: { type: 'number', description: 'Linha "Total de compras do período" do resumo (soma das transações), positivo' },
+      total_fatura: { type: 'number', description: 'Linha "Total a pagar" da fatura, positivo (pode diferir do total de compras por saldo/fatura anterior)' },
+      vencimento: { type: 'string', description: 'Data de vencimento da fatura em YYYY-MM-DD; vazio se ausente' },
+      observacoes: { type: 'string', description: 'Linhas ilegíveis ou dúvidas; vazio se nenhuma' },
+    },
+    required: ['lancamentos', 'total_compras', 'total_fatura', 'vencimento', 'observacoes'],
+    additionalProperties: false,
+  };
+
+  const mensagens = [
+    {
+      role: 'user',
+      content: [
+        {
+          type: 'document',
+          source: {
+            type: 'base64',
+            media_type: 'application/pdf',
+            data: pdfBuffer.toString('base64'),
+          },
+        },
+        {
+          type: 'text',
+          text: `Extraia os lançamentos da SEÇÃO DE TRANSAÇÕES desta fatura de cartão de crédito (emissor: ${banco}).
+Regras:
+- Extraia SOMENTE as linhas de transação (cada compra tem data + estabelecimento + valor). NÃO extraia linhas do resumo ("Fatura anterior", "Pagamento recebido", "Total de compras", "Total a pagar", "Saldo em aberto", limites) como lançamento — essas viram total_compras/total_fatura.
+- Cada COMPRA/encargo é uma SAÍDA: valor NEGATIVO. Estornos e créditos são POSITIVOS.
+- Compra parcelada traz o marcador "Parcela NN/MM" (ou "NN/MM", "PARC NN/MM"): preencha parcela_num=NN, parcela_total=MM e REMOVA o marcador da descrição. O valor da linha é o da PARCELA, não o total da compra. Compra à vista/financiada sem parcela: parcela_num=0, parcela_total=0.
+- valor: use o valor exibido na linha da transação (à direita), não o "Total a pagar" detalhado embaixo.
+- data: a data impressa na linha da transação (formato "DD MMM" do ano da fatura), em YYYY-MM-DD.
+- total_compras: a linha "Total de compras ... do período". total_fatura: a linha "Total a pagar". vencimento: a data de vencimento impressa.
+- Ignore blocos de alternativas de pagamento, limites, juros/CET e propaganda. Não invente linhas; dúvidas vão em observacoes.`,
+        },
+      ],
+    },
+  ];
+
+  let dados = null;
+  let diferenca = null;
+  for (let tentativa = 1; tentativa <= 2; tentativa++) {
+    const stream = getClient().messages.stream({
+      model: MODEL,
+      max_tokens: 32000,
+      output_config: { format: { type: 'json_schema', schema } },
+      messages: mensagens,
+    });
+    const response = await stream.finalMessage();
+    if (response.stop_reason === 'refusal') throw new Error('OCR de fatura recusado pela IA');
+
+    const texto = response.content.find((b) => b.type === 'text')?.text;
+    dados = JSON.parse(texto);
+
+    // Fecha quando Σ transações = -(total de compras do período): compras
+    // negativas somam o total; estornos (positivos) abatem. O "total a pagar"
+    // NÃO serve aqui — ele inclui saldo/fatura anterior, fora das transações.
+    const soma = dados.lancamentos.reduce((s, l) => s + Number(l.valor), 0);
+    diferenca = soma + Number(dados.total_compras);
+    if (Math.abs(diferenca) < 0.01) {
+      diferenca = 0;
+      break;
+    }
+    if (tentativa === 1) {
+      mensagens.push(
+        { role: 'assistant', content: texto },
+        {
+          role: 'user',
+          content: `Sua extração não fecha com o total de compras do período: soma dos lançamentos (${soma.toFixed(2)}) deveria ser o negativo do total de compras (${Number(dados.total_compras).toFixed(2)}), mas a diferença é ${diferenca.toFixed(2)}.
+Dica: um único lançamento com sinal trocado gera diferença igual a 2x o valor dele (${Math.abs(diferenca / 2).toFixed(2)}). Confira se você (a) extraiu o valor da PARCELA e não o total da compra, (b) não incluiu linhas do resumo, (c) não deixou transação de fora. Reenvie a extração completa corrigida.`,
+        }
+      );
+    }
+  }
+
+  // id_externo carrega a parcela -> hash de dedup único por parcela
+  const lancamentos = dados.lancamentos.map((l) => ({
+    data: l.data,
+    descricao: l.descricao,
+    valor: l.valor,
+    parcela_num: l.parcela_total > 0 ? l.parcela_num : null,
+    parcela_total: l.parcela_total > 0 ? l.parcela_total : null,
+    id_externo: l.parcela_total > 0 ? `${l.parcela_num}/${l.parcela_total}` : '',
+  }));
+
+  const pendencias = [];
+  if (dados.observacoes && dados.observacoes.trim()) {
+    pendencias.push({
+      linha_raw: dados.observacoes.slice(0, 500),
+      motivo: 'OCR de fatura sinalizou linhas ilegíveis/dúvidas',
+    });
+  }
+  if (diferenca !== 0) {
+    pendencias.push({
+      linha_raw: `Soma dos lançamentos não fecha com o total da fatura (diferença R$ ${diferenca.toFixed(2)})`,
+      motivo: 'OCR de fatura: confira sinais/valores dos lançamentos importados',
+    });
+  }
+  return { lancamentos, pendencias, vencimento: dados.vencimento || null };
+}

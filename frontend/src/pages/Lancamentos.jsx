@@ -154,6 +154,7 @@ export default function Lancamentos() {
                 <td className="num tx-muted">{l.data.slice(8, 10)}/{l.data.slice(5, 7)}</td>
                 <td>
                   <b>{l.descricao}</b>
+                  {l.parcela_total > 1 && <span className="pill" style={{ marginLeft: 8 }}>parc {l.parcela_num}/{l.parcela_total}</span>}
                   {l.status === 'pendente' && <span className="pill warn" style={{ marginLeft: 8 }}>revisar</span>}
                 </td>
                 <td className="tx-muted">{l.contas?.nome}</td>

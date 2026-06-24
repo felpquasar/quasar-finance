@@ -14,7 +14,7 @@ resumoRouter.get('/', async (req, res) => {
     .toISOString()
     .slice(0, 10);
 
-  const [lancsR, pendR, splitsR, receberR, recR] = await Promise.all([
+  const [lancsR, pendR, splitsR, receberR, recR, compR] = await Promise.all([
     supabase
       .from('lancamentos')
       .select('id, valor, natureza, status, categoria_id, categorias(nome)')
@@ -29,8 +29,10 @@ resumoRouter.get('/', async (req, res) => {
     supabase.from('splits').select('lancamento_id, percentual_felipe').eq('user_id', req.user.id),
     supabase.from('a_receber').select('valor').eq('user_id', req.user.id).eq('status', 'aberto'),
     supabase.from('recorrentes').select('dia_vencimento, valor_estimado').eq('user_id', req.user.id).eq('ativo', true),
+    // Parcelas vincendas do mês (compras_parceladas ainda sem fatura lançada).
+    supabase.from('compromissos').select('valor').eq('user_id', req.user.id).eq('mes_ref', inicio),
   ]);
-  const erro = lancsR.error || pendR.error || splitsR.error || receberR.error || recR.error;
+  const erro = lancsR.error || pendR.error || splitsR.error || receberR.error || recR.error || compR.error;
   if (erro) return res.status(500).json({ erro: erro.message });
 
   const lancs = lancsR.data;
@@ -75,11 +77,16 @@ resumoRouter.get('/', async (req, res) => {
     const recorrentesFuturas = (recR.data || [])
       .filter((r) => r.dia_vencimento > diaHoje && r.valor_estimado)
       .reduce((s, r) => s + Number(r.valor_estimado), 0);
-    const gastoProjetado = gastoAtual + mediaDiaria * (diasNoMes - diaHoje) + recorrentesFuturas;
+    // Parcelas vincendas deste mês ainda não capturadas como lançamento
+    // (fatura do mês não subiu). Compromisso some quando a fatura é ingerida.
+    const parcelasAVencer = (compR.data || []).reduce((s, c) => s + Number(c.valor), 0);
+    const gastoProjetado =
+      gastoAtual + mediaDiaria * (diasNoMes - diaHoje) + recorrentesFuturas + parcelasAVencer;
     projecao = {
       gasto_projetado: Math.round(gastoProjetado * 100) / 100,
       sobra_projetada: Math.round((entradas - gastoProjetado) * 100) / 100,
       recorrentes_a_vencer: Math.round(recorrentesFuturas * 100) / 100,
+      parcelas_a_vencer: Math.round(parcelasAVencer * 100) / 100,
     };
   }
 
