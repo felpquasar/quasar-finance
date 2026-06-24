@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { supabase } from '../supabase.js';
+import { recorrentesAVencer, somaRecorrentes } from '../lib/conciliacao.js';
 
 export const resumoRouter = Router();
 
@@ -65,7 +66,7 @@ resumoRouter.get('/', async (req, res) => {
 
   // Projeção de fechamento (só faz sentido no mês corrente):
   // gasto até agora + média diária projetada nos dias restantes
-  // + recorrentes ativas que ainda vão vencer neste mês.
+  // + recorrentes do mês ainda não pagas (conciliadas por valor no extrato).
   const hoje = new Date();
   const ehMesCorrente = hoje.toISOString().slice(0, 7) === mes;
   let projecao = null;
@@ -74,9 +75,12 @@ resumoRouter.get('/', async (req, res) => {
     const diasNoMes = new Date(hoje.getFullYear(), hoje.getMonth() + 1, 0).getDate();
     const gastoAtual = Math.abs(gastos);
     const mediaDiaria = diaHoje > 0 ? gastoAtual / diaHoje : 0;
-    const recorrentesFuturas = (recR.data || [])
-      .filter((r) => r.dia_vencimento > diaHoje && r.valor_estimado)
-      .reduce((s, r) => s + Number(r.valor_estimado), 0);
+    // Recorrentes do mês ainda não detectadas no extrato (já vencidas ou não)
+    // — contas certas que faltam fechar. Concilia por valor (ótica do Felipe).
+    const saidasMes = contam.filter((l) => l.valor < 0).map((l) => Math.abs(valorFelipe(l)));
+    const recorrentesFuturas = somaRecorrentes(
+      recorrentesAVencer(recR.data || [], saidasMes)
+    );
     // Parcelas vincendas deste mês ainda não capturadas como lançamento
     // (fatura do mês não subiu). Compromisso some quando a fatura é ingerida.
     const parcelasAVencer = (compR.data || []).reduce((s, c) => s + Number(c.valor), 0);

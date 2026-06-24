@@ -118,7 +118,7 @@ export default function Dashboard() {
           </div>
           <div className="hint">
             {resumo.projecao
-              ? <>sobra atual <b className="num">{fmt(resumo.sobra)}</b> · projeção até o dia 30{resumo.projecao.recorrentes_a_vencer > 0 && <> · {fmt(resumo.projecao.recorrentes_a_vencer)} em contas a vencer</>}{resumo.projecao.parcelas_a_vencer > 0 && <> · {fmt(resumo.projecao.parcelas_a_vencer)} em parcelas</>}</>
+              ? <>sobra atual <b className="num">{fmt(resumo.sobra)}</b> · projeção até o dia 30{resumo.projecao.recorrentes_a_vencer > 0 && <> · {fmt(resumo.projecao.recorrentes_a_vencer)} em contas do mês</>}{resumo.projecao.parcelas_a_vencer > 0 && <> · {fmt(resumo.projecao.parcelas_a_vencer)} em parcelas</>}</>
               : sobraOk
                 ? <>✓ aporte de <b className="num">{fmt(resumo.aporte_meta)}</b> garantido</>
                 : <>faltam <b className="num">{fmt(Math.abs(resumo.distancia_meta))}</b> p/ aporte de R$ 417</>}

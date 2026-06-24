@@ -1,4 +1,5 @@
 import { supabase } from '../supabase.js';
+import { recorrentesAVencer, somaRecorrentes } from '../lib/conciliacao.js';
 
 // Geradores das mensagens proativas do WhatsApp (§ "Modo proativo" da
 // arquitetura). Texto puro, sem efeito colateral de envio — testável e
@@ -94,9 +95,9 @@ export async function resumoSemanal(userId, hoje = new Date()) {
   const diaHoje = hoje.getDate();
   const diasNoMes = new Date(ano, mes + 1, 0).getDate();
   const mediaDiaria = diaHoje > 0 ? gastoMes / diaHoje : 0;
-  const recFuturas = (recR.data || [])
-    .filter((r) => r.dia_vencimento > diaHoje && r.valor_estimado)
-    .reduce((s, r) => s + Number(r.valor_estimado), 0);
+  // Recorrentes do mês ainda não pagas (conciliadas por valor no extrato)
+  const saidasMes = doMes.filter((l) => l.valor < 0).map((l) => Math.abs(valorFelipe(l, pctPor)));
+  const recFuturas = somaRecorrentes(recorrentesAVencer(recR.data || [], saidasMes));
   const parcelasMes = (compR.data || []).reduce((s, c) => s + Number(c.valor), 0);
   const gastoProjetado = gastoMes + mediaDiaria * (diasNoMes - diaHoje) + recFuturas + parcelasMes;
   const sobraProjetada = entradasMes - gastoProjetado;
@@ -126,7 +127,7 @@ export async function resumoSemanal(userId, hoje = new Date()) {
 
   L.push('');
   const ok = sobraProjetada >= APORTE_META;
-  L.push(`*Projeção de fechamento:* sobra de ${real(sobraProjetada)}`);
+  L.push(`*Projeção de fechamento:* ${sobraProjetada < 0 ? 'déficit' : 'sobra'} de ${real(sobraProjetada)}`);
   L.push(ok
     ? `✅ Acima da régua de ${real(APORTE_META)}/mês — aporte garantido.`
     : `🔴 Régua é ${real(APORTE_META)}/mês — faltam ${real(APORTE_META - sobraProjetada)} no ritmo atual.`);
