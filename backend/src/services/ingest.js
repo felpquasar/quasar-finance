@@ -4,6 +4,7 @@ import { normalizarDescricao, hashDedup } from '../lib/normalize.js';
 import { classificarNatureza, aplicarRegraCategoria } from './natureza.js';
 import { sincronizarDerivados } from './derivados.js';
 import { sincronizarParcelas } from './parcelas.js';
+import { conciliarAReceber } from './conciliar.js';
 import { aplicarCategorizacaoIA } from './ia.js';
 
 // Pipeline da Fase 1: PARSER -> DEDUP -> NATUREZA -> (regras de categoria).
@@ -107,6 +108,9 @@ export async function ingestLancamentos({
     parcelas = await sincronizarParcelas({ userId, lancamentos: inseridos, mesRefFatura });
   }
 
+  // [6] Conciliação automática: pix recebido baixa "a receber" (Yulae/Quasar)
+  const conciliacao = await conciliarAReceber({ userId, lancamentos: inseridos });
+
   // Fila de pendências (linhas ilegíveis)
   if (pendencias.length > 0) {
     const { error } = await supabase.from('pendencias').insert(
@@ -139,5 +143,6 @@ export async function ingestLancamentos({
     ia_incertos: ia.incertos,
     parcelas_compras: parcelas.compras,
     parcelas_compromissos: parcelas.compromissos,
+    areceber_baixados: conciliacao.baixados,
   };
 }

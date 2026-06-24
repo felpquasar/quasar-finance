@@ -1,5 +1,5 @@
 import { supabase } from '../supabase.js';
-import { recorrentesAVencer, somaRecorrentes } from '../lib/conciliacao.js';
+import { recorrentesAVencer, classificarRecorrentes, somaRecorrentes } from '../lib/conciliacao.js';
 
 // Geradores das mensagens proativas do WhatsApp (§ "Modo proativo" da
 // arquitetura). Texto puro, sem efeito colateral de envio — testável e
@@ -160,20 +160,28 @@ export async function alertasVencimento(userId, hoje = new Date(), janelaDias = 
   const limite = new Date(hoje);
   limite.setDate(hoje.getDate() + janelaDias);
 
-  const [recR, avulsasR, repassesR] = await Promise.all([
+  const inicioMes = primeiroDiaMes(hoje.getFullYear(), hoje.getMonth());
+  const [recR, avulsasR, repassesR, lancsR, splitsR] = await Promise.all([
     supabase.from('recorrentes').select('nome, dia_vencimento, valor_estimado').eq('user_id', userId).eq('ativo', true),
     supabase.from('contas_avulsas').select('nome, vencimento, valor').eq('user_id', userId).eq('status', 'aberta'),
     supabase.from('repasses_familia').select('cartao, vencimento, valor_fatura, status').eq('user_id', userId).eq('status', 'aguardando_pix'),
+    supabase.from('lancamentos').select('id, valor, natureza').eq('user_id', userId).gte('data', inicioMes).lt('valor', 0),
+    supabase.from('splits').select('lancamento_id, percentual_felipe').eq('user_id', userId),
   ]);
-  const erro = recR.error || avulsasR.error || repassesR.error;
+  const erro = recR.error || avulsasR.error || repassesR.error || lancsR.error || splitsR.error;
   if (erro) throw erro;
+
+  // Concilia: não alerta recorrente já paga no mês (casada por valor no extrato)
+  const pctPor = Object.fromEntries((splitsR.data || []).map((s) => [s.lancamento_id, s.percentual_felipe]));
+  const saidasMes = (lancsR.data || []).map((l) => Math.abs(valorFelipe(l, pctPor)));
+  const { aVencer } = classificarRecorrentes(recR.data || [], saidasMes);
 
   const alertas = [];
   const diasAte = (iso) => Math.round((new Date(iso) - new Date(isoDia(hoje))) / 86400000);
   const qdo = (d) => (d <= 0 ? 'hoje' : d === 1 ? 'amanhã' : `em ${d} dias`);
 
-  // Recorrentes: dia do mês dentro da janela (sem rolar virada de mês p/ simplicidade)
-  for (const r of recR.data || []) {
+  // Recorrentes a vencer (não pagas): dia do mês dentro da janela
+  for (const r of aVencer) {
     if (r.dia_vencimento >= diaHoje && r.dia_vencimento <= limite.getDate() && limite.getMonth() === hoje.getMonth()) {
       const d = r.dia_vencimento - diaHoje;
       const valor = r.valor_estimado ? ` — ~${real(r.valor_estimado)}` : '';

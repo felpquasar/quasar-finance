@@ -9,12 +9,14 @@
 // uma recorrente. Em dúvida, a recorrente fica "a vencer" — melhor a projeção
 // superestimar o gasto do que esconder uma conta certa do mês.
 
-// Retorna as recorrentes do mês ainda NÃO pagas (a vencer) — base da projeção.
-// recorrentes: [{ nome, dia_vencimento, valor_estimado, ... }]
-// saidasDoMes: valores POSITIVOS dos gastos do mês (já na ótica do Felipe).
-export function recorrentesAVencer(recorrentes, saidasDoMes) {
+// Classifica as recorrentes do mês em pagas (conciliadas no extrato) e a
+// vencer. recorrentes: [{ nome, dia_vencimento, valor_estimado, ... }];
+// saidasDoMes: valores POSITIVOS dos gastos do mês (ótica do Felipe).
+// Cada saída casa no máximo uma recorrente; tolerância conservadora.
+export function classificarRecorrentes(recorrentes, saidasDoMes) {
   const saidas = (saidasDoMes || []).map((v) => Math.abs(Number(v)));
   const usado = new Array(saidas.length).fill(false);
+  const pagas = [];
   const aVencer = [];
 
   for (const r of recorrentes || []) {
@@ -29,10 +31,15 @@ export function recorrentesAVencer(recorrentes, saidasDoMes) {
     for (let i = 0; i < saidas.length; i++) {
       if (!usado[i] && Math.abs(saidas[i] - alvo) <= tol) { casa = i; break; }
     }
-    if (casa >= 0) usado[casa] = true; // paga: não entra na projeção
+    if (casa >= 0) { usado[casa] = true; pagas.push(r); }
     else aVencer.push(r);
   }
-  return aVencer;
+  return { pagas, aVencer };
+}
+
+// Atalho: só as recorrentes ainda não pagas (base da projeção).
+export function recorrentesAVencer(recorrentes, saidasDoMes) {
+  return classificarRecorrentes(recorrentes, saidasDoMes).aVencer;
 }
 
 // Soma do valor estimado de uma lista de recorrentes (ignora as sem valor).
