@@ -266,16 +266,16 @@ export async function ocrFaturaPdf({ pdfBuffer, banco }) {
             data: { type: 'string', description: 'Data da compra em YYYY-MM-DD (nas parceladas, a data da compra original impressa na linha)' },
             descricao: { type: 'string', description: 'Estabelecimento/descrição, sem o marcador de parcela e sem horários' },
             valor: { type: 'number', description: 'Compra/encargo = NEGATIVO; estorno/crédito/pagamento = POSITIVO' },
-            parcela_num: { type: 'integer', description: 'Número da parcela atual (1 desta fatura); 0 se a compra NÃO é parcelada' },
-            parcela_total: { type: 'integer', description: 'Total de parcelas da compra; 0 se NÃO é parcelada' },
+            parcela_num: { type: 'integer', description: 'Número da parcela desta fatura (o NN em "NN/MM", "NN de MM", "PARC NN/MM"); 0 se a compra NÃO é parcelada' },
+            parcela_total: { type: 'integer', description: 'Total de parcelas da compra (o MM); 0 se NÃO é parcelada' },
           },
           required: ['data', 'descricao', 'valor', 'parcela_num', 'parcela_total'],
           additionalProperties: false,
         },
       },
-      total_compras: { type: 'number', description: 'Linha "Total de compras do período" do resumo (soma das transações), positivo' },
-      total_fatura: { type: 'number', description: 'Linha "Total a pagar" da fatura, positivo (pode diferir do total de compras por saldo/fatura anterior)' },
-      vencimento: { type: 'string', description: 'Data de vencimento da fatura em YYYY-MM-DD; vazio se ausente' },
+      total_compras: { type: 'number', description: 'Total de COMPRAS do período (NÃO o total a pagar), positivo. Rótulo varia por emissor: "Total de compras do período" (Nubank); "Consumos de DD/MM a DD/MM" (Mercado Pago); soma de "Compras nacionais" + "Compras internacionais" (Banco do Brasil)' },
+      total_fatura: { type: 'number', description: 'Linha "Total a pagar"/"Total"/"Valor" do topo da fatura, positivo (pode diferir do total de compras por saldo/fatura anterior)' },
+      vencimento: { type: 'string', description: 'Data de "Vencimento"/"Vence em" em YYYY-MM-DD; vazio se ausente' },
       observacoes: { type: 'string', description: 'Linhas ilegíveis ou dúvidas; vazio se nenhuma' },
     },
     required: ['lancamentos', 'total_compras', 'total_fatura', 'vencimento', 'observacoes'],
@@ -297,14 +297,26 @@ export async function ocrFaturaPdf({ pdfBuffer, banco }) {
         {
           type: 'text',
           text: `Extraia os lançamentos da SEÇÃO DE TRANSAÇÕES desta fatura de cartão de crédito (emissor: ${banco}).
-Regras:
-- Extraia SOMENTE as linhas de transação (cada compra tem data + estabelecimento + valor). NÃO extraia linhas do resumo ("Fatura anterior", "Pagamento recebido", "Total de compras", "Total a pagar", "Saldo em aberto", limites) como lançamento — essas viram total_compras/total_fatura.
-- Cada COMPRA/encargo é uma SAÍDA: valor NEGATIVO. Estornos e créditos são POSITIVOS.
-- Compra parcelada traz o marcador "Parcela NN/MM" (ou "NN/MM", "PARC NN/MM"): preencha parcela_num=NN, parcela_total=MM e REMOVA o marcador da descrição. O valor da linha é o da PARCELA, não o total da compra. Compra à vista/financiada sem parcela: parcela_num=0, parcela_total=0.
-- valor: use o valor exibido na linha da transação (à direita), não o "Total a pagar" detalhado embaixo.
-- data: a data impressa na linha da transação (formato "DD MMM" do ano da fatura), em YYYY-MM-DD.
-- total_compras: a linha "Total de compras ... do período". total_fatura: a linha "Total a pagar". vencimento: a data de vencimento impressa.
-- Ignore blocos de alternativas de pagamento, limites, juros/CET e propaganda. Não invente linhas; dúvidas vão em observacoes.`,
+
+EXTRAIR como lançamento:
+- Cada linha de COMPRA/encargo (data + estabelecimento + valor): valor NEGATIVO.
+- Estorno/devolução/crédito de uma compra: valor POSITIVO.
+
+NÃO extrair (viram total_compras/total_fatura ou são ignorados):
+- Linhas de resumo: "Saldo fatura anterior", "Saldo em aberto", "Fatura anterior", limites, "Total de compras", "Compras nacionais/internacionais", "Total a pagar", "Total da fatura", "Consumos de ...".
+- PAGAMENTO da própria fatura: "Pagamento recebido", "Pagamento da fatura de <mês>", "PGTO ...", e qualquer linha sob o título "Pagamentos/Créditos" que quita a fatura. NUNCA vira lançamento (já entra pelo extrato da conta).
+- Títulos de seção/categoria SEM valor ("Restaurantes", "Serviços", "Compras parceladas", nome/final do cartão, "Movimentações na fatura").
+- SUBTOTAIS por cartão ou por seção (linha "Total R$ ..." que fecha um bloco). A fatura pode listar transações de VÁRIOS cartões, cada um com seu subtotal — ignore os subtotais e extraia as transações de todos.
+- Blocos de limites, IOF, juros/CET, pontos, propaganda e opções/alternativas de pagamento.
+
+PARCELAS:
+- Marcador: "Parcela NN/MM", "Parcela NN de MM", "NN/MM" ou "PARC NN/MM" (pode estar no MEIO da descrição, com cidade/UF depois). Preencha parcela_num=NN, parcela_total=MM e REMOVA o marcador da descrição. O valor da linha é o da PARCELA, não o total da compra. À vista/sem parcela: parcela_num=0, parcela_total=0.
+
+CAMPOS:
+- valor: o valor à direita da linha da transação. Ignore a coluna de "País" (BR/US) e horários.
+- data: a data impressa na linha ("DD/MM" ou "DD MMM"), em YYYY-MM-DD. Sem ano impresso, infira pelo vencimento: meses POSTERIORES ao mês do vencimento pertencem ao ano anterior. Em parceladas a data é a da COMPRA ORIGINAL (pode ser de muitos meses atrás).
+- total_compras: total de COMPRAS do período ("Total de compras do período" / "Consumos de DD/MM a DD/MM" / "Compras nacionais"+"Compras internacionais"). NÃO use o "Total a pagar". total_fatura: "Total a pagar"/"Total"/"Valor". vencimento: data de "Vencimento"/"Vence em".
+- Não invente linhas; dúvidas/ilegíveis vão em observacoes.`,
         },
       ],
     },

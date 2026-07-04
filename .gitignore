@@ -6,3 +6,6 @@ dist/
 # Sessão do WhatsApp (whatsapp-web.js) — contém credenciais do aparelho
 .wwebjs_auth/
 .wwebjs_cache/
+
+# Faturas/extratos reais usados para calibrar parsers (dados pessoais)
+faturas_bancos/
